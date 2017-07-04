@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ropsten_testnet_staging">Ropsten Revival Testnet - Staging</string>
+    <string name="ropsten_testnet">Ropsten Revival Testnet</string>
+    <string name="mainnet">Mainnet</string>
+</resources>
