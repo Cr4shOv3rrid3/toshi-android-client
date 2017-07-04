@@ -32,6 +32,7 @@ public class SharedPrefsUtil {
     private static final String LOCAL_CURRENCY_CODE = "localCurrencyCode";
     private static final String WAS_MIGRATED = "wasMigrated";
     private static final String FORCE_USER_UPDATE = "forceUserUpdate";
+    private static final String CURRENT_NETWORK = "currentNetwork";
 
     public static boolean hasOnboarded() {
         final SharedPreferences prefs = BaseApplication.get().getSharedPreferences(FileNames.USER_PREFS, Context.MODE_PRIVATE);
@@ -134,5 +135,18 @@ public class SharedPrefsUtil {
                 .putString(LOCAL_CURRENCY_CODE, null)
                 .putBoolean(WAS_MIGRATED, false)
                 .apply();
+    }
+
+    public static void setCurrentNetwork(final @NetworkType.Type int networkType) {
+        final SharedPreferences prefs = BaseApplication.get().getSharedPreferences(FileNames.USER_PREFS, Context.MODE_PRIVATE);
+        prefs.edit()
+                .putInt(CURRENT_NETWORK, networkType)
+                .apply();
+    }
+
+    @SuppressWarnings("WrongConstant")
+    public static @NetworkType.Type int getCurrentNetwork() {
+        final SharedPreferences prefs = BaseApplication.get().getSharedPreferences(FileNames.USER_PREFS, Context.MODE_PRIVATE);
+        return prefs.getInt(CURRENT_NETWORK, NetworkType.ROPSTEN_TESTNET);
     }
 }
