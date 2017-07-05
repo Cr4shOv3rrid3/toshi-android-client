@@ -58,4 +58,5 @@
     <color name="profile_icon_text_color">#67676A</color>
     <color name="border_color">#C7CBCE</color>
     <color name="file_avatar_background">#9E9E9E</color>
+    <color name="nav_divider">#EFEFEF</color>
 </resources>

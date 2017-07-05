@@ -34,10 +34,10 @@ import com.toshi.R;
 import com.toshi.manager.SofaMessageManager;
 import com.toshi.model.local.User;
 import com.toshi.util.LogUtil;
+import com.toshi.util.NetworkType;
 import com.toshi.util.SharedPrefsUtil;
 import com.toshi.util.SoundManager;
 import com.toshi.view.BaseApplication;
-import com.toshi.view.activity.BackupPhraseInfoActivity;
 import com.toshi.view.activity.MainActivity;
 import com.toshi.view.activity.ScannerActivity;
 import com.toshi.view.adapter.NavigationAdapter;
@@ -85,6 +85,7 @@ public class MainPresenter implements Presenter<MainActivity> {
             manuallySelectFirstTab();
         }
         initNavBar();
+        initNetworkView();
         trySelectTabFromIntent();
         attachUnreadMessagesSubscription();
         attachUserSubscription();
@@ -111,6 +112,13 @@ public class MainPresenter implements Presenter<MainActivity> {
         navBar.setBehaviorTranslationEnabled(false);
 
         navBar.setTitleTextSizeInSp(13.0f, 12.0f);
+        navBar.setUseElevation(false);
+    }
+
+    private void initNetworkView() {
+        final @NetworkType.Type int networkType = SharedPrefsUtil.getCurrentNetwork();
+        final String network = NetworkType.getNetworkName(networkType);
+        this.activity.getBinding().network.setText(network);
     }
 
     private void attachUnreadMessagesSubscription() {
@@ -166,16 +174,16 @@ public class MainPresenter implements Presenter<MainActivity> {
     private void attachUserSubscription() {
         final Subscription sub =
                 BaseApplication
-                        .get()
-                        .getUserManager()
-                        .getUserObservable()
-                        .filter(user -> user != null)
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(
-                                this::tryShowMigrationDialog,
-                                ex -> LogUtil.e(getClass(), ex.toString())
-                        );
+                .get()
+                .getUserManager()
+                .getUserObservable()
+                .filter(user -> user != null)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        this::tryShowMigrationDialog,
+                        ex -> LogUtil.e(getClass(), ex.toString())
+                );
 
         this.subscriptions.add(sub);
     }
@@ -227,11 +235,6 @@ public class MainPresenter implements Presenter<MainActivity> {
 
     private void showAlertBadge() {
         this.activity.getBinding().navBar.setNotification("!", 4);
-    }
-
-    private void goToBackupPhraseActivity() {
-        final Intent intent = new Intent(this.activity, BackupPhraseInfoActivity.class);
-        this.activity.startActivity(intent);
     }
 
     @Override
