@@ -18,26 +18,48 @@
 package com.toshi.presenter;
 
 import android.app.Dialog;
+import android.support.annotation.StringRes;
+import android.view.View;
+import android.widget.Toast;
 
 import com.toshi.BuildConfig;
 import com.toshi.R;
 import com.toshi.util.DialogUtil;
+import com.toshi.util.LogUtil;
 import com.toshi.util.NetworkType;
 import com.toshi.util.SharedPrefsUtil;
+import com.toshi.view.BaseApplication;
 import com.toshi.view.activity.DevelopActivity;
 import com.toshi.view.fragment.DialogFragment.NetworkSwitcherDialog;
+
+import rx.Subscription;
+import rx.android.schedulers.AndroidSchedulers;
+import rx.subscriptions.CompositeSubscription;
 
 public class DevelopPresenter implements Presenter<DevelopActivity> {
 
     private DevelopActivity activity;
+    private CompositeSubscription subscriptions;
+    private boolean firstTimeAttaching = true;
 
     private Dialog infoDialog;
     private NetworkSwitcherDialog networkDialog;
+    private boolean onGoingTask = false;
 
     @Override
     public void onViewAttached(DevelopActivity view) {
         this.activity = view;
+
+        if (this.firstTimeAttaching) {
+            this.firstTimeAttaching = false;
+            initLongLivingObjects();
+        }
+
         initShortLivingObjects();
+    }
+
+    private void initLongLivingObjects() {
+        this.subscriptions = new CompositeSubscription();
     }
 
     private void initShortLivingObjects() {
@@ -63,13 +85,8 @@ public class DevelopPresenter implements Presenter<DevelopActivity> {
 
     private void showNetworkSwitchDialog() {
         this.networkDialog = NetworkSwitcherDialog.getInstance()
-                .setOnNetworkListener(this::handleNetworkSelected);
+                .setOnNetworkListener(this::changeNetwork);
         this.networkDialog.show(this.activity.getSupportFragmentManager(), NetworkSwitcherDialog.TAG);
-    }
-
-    private void handleNetworkSelected(final Integer networkType) {
-        setCurrentNetwork(networkType);
-        SharedPrefsUtil.setCurrentNetwork(networkType);
     }
 
     private void setVersionCode() {
@@ -82,9 +99,65 @@ public class DevelopPresenter implements Presenter<DevelopActivity> {
         this.activity.getBinding().currentNetwork.setText(networkName);
     }
 
+    private void changeNetwork(final @NetworkType.Type int networkType) {
+        if (this.onGoingTask) return;
+        startLoadingTask();
+
+        final Subscription sub =
+                BaseApplication
+                .get()
+                .getBalanceManager()
+                .changeNetwork(networkType)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        () -> handleNetworkChange(networkType),
+                        this::handleNetworkChangeError
+                );
+
+        this.subscriptions.add(sub);
+    }
+
+    private void startLoadingTask() {
+        if (this.activity == null) return;
+        this.onGoingTask = true;
+        this.activity.getBinding().loadingSpinner.setVisibility(View.VISIBLE);
+    }
+
+    private void handleNetworkChange(final @NetworkType.Type int networkType) {
+        setCurrentNetwork(networkType);
+        BaseApplication
+                .get()
+                .getBalanceManager()
+                .refreshBalance();
+        showToast(R.string.network_changed);
+        stopLoadingTask();
+    }
+
+    private void handleNetworkChangeError(final Throwable throwable) {
+        showToast(R.string.network_change_error);
+        LogUtil.exception(getClass(), throwable);
+        stopLoadingTask();
+    }
+
+    private void showToast(final @StringRes int stringRes) {
+        if (this.activity == null) return;
+        Toast.makeText(
+                this.activity,
+                stringRes,
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    private void stopLoadingTask() {
+        this.onGoingTask = false;
+        if (this.activity == null) return;
+        this.activity.getBinding().loadingSpinner.setVisibility(View.GONE);
+    }
+
     @Override
     public void onViewDetached() {
         closeDialogs();
+        this.subscriptions.clear();
         this.activity = null;
     }
 
@@ -102,6 +175,7 @@ public class DevelopPresenter implements Presenter<DevelopActivity> {
 
     @Override
     public void onDestroyed() {
+        this.subscriptions = null;
         this.activity = null;
     }
 }

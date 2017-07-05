@@ -19,6 +19,7 @@ package com.toshi.manager;
 
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 
 import com.toshi.crypto.HDWallet;
@@ -31,9 +32,12 @@ import com.toshi.model.network.GcmRegistration;
 import com.toshi.model.network.MarketRates;
 import com.toshi.model.network.ServerTime;
 import com.toshi.model.sofa.Payment;
+import com.toshi.service.RegistrationIntentService;
 import com.toshi.util.CurrencyUtil;
 import com.toshi.util.FileNames;
+import com.toshi.util.GcmUtil;
 import com.toshi.util.LogUtil;
+import com.toshi.util.NetworkType;
 import com.toshi.util.SharedPrefsUtil;
 import com.toshi.view.BaseApplication;
 
@@ -42,6 +46,7 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
 import rx.Completable;
+import rx.Observable;
 import rx.Single;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
@@ -192,6 +197,14 @@ public class BalanceManager {
         });
     }
 
+    public Observable<Void> registerEthGcm() {
+        final Intent intent = new Intent(BaseApplication.get(), RegistrationIntentService.class)
+                .putExtra(RegistrationIntentService.FORCE_UPDATE, true)
+                .putExtra(RegistrationIntentService.ETH_REGISTRATION_ONLY, true);
+        BaseApplication.get().startService(intent);
+        return RegistrationIntentService.getGcmRegistrationObservable();
+    }
+
     public Single<Void> registerForGcm(final String token) {
         return EthereumService
                 .getApi()
@@ -246,6 +259,39 @@ public class BalanceManager {
                 .edit()
                 .putString(LAST_KNOWN_BALANCE, balance.getUnconfirmedBalanceAsHex())
                 .apply();
+    }
+
+    public Completable changeNetwork(final @NetworkType.Type int networkType) {
+        final boolean isDefaultNetwork = NetworkType.getDefaultNetwork() == SharedPrefsUtil.getCurrentNetwork();
+        if (isDefaultNetwork) {
+            return changeEthBaseUrl(networkType)
+                    .andThen(registerEthGcm().first().toCompletable())
+                    .subscribeOn(Schedulers.io())
+                    .doOnCompleted(() -> SharedPrefsUtil.setCurrentNetwork(networkType));
+        }
+
+        return unregisterEthGcm()
+                .andThen(changeEthBaseUrl(networkType))
+                .andThen(registerEthGcm().first().toCompletable())
+                .subscribeOn(Schedulers.io())
+                .doOnCompleted(() -> SharedPrefsUtil.setCurrentNetwork(networkType));
+    }
+
+    private Completable unregisterEthGcm() {
+        return GcmUtil
+                .getGcmToken()
+                .flatMapCompletable(token ->
+                        BaseApplication
+                        .get()
+                        .getBalanceManager()
+                        .unregisterFromGcm(token));
+    }
+
+    private Completable changeEthBaseUrl(final @NetworkType.Type int networkType) {
+        return Completable.fromAction(() -> {
+            final String networkUrl = NetworkType.getNetworkUrl(networkType);
+            EthereumService.get().changeBaseUrl(networkUrl);
+        });
     }
 
     public void clear() {

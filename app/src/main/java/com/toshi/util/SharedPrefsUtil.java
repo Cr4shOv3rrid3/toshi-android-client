@@ -147,6 +147,6 @@ public class SharedPrefsUtil {
     @SuppressWarnings("WrongConstant")
     public static @NetworkType.Type int getCurrentNetwork() {
         final SharedPreferences prefs = BaseApplication.get().getSharedPreferences(FileNames.USER_PREFS, Context.MODE_PRIVATE);
-        return prefs.getInt(CURRENT_NETWORK, NetworkType.ROPSTEN_TESTNET);
+        return prefs.getInt(CURRENT_NETWORK, NetworkType.getDefaultNetwork());
     }
 }

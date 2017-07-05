@@ -2,6 +2,7 @@ package com.toshi.util;
 
 import android.support.annotation.IntDef;
 
+import com.toshi.BuildConfig;
 import com.toshi.R;
 import com.toshi.view.BaseApplication;
 
@@ -30,5 +31,28 @@ public class NetworkType {
         } else {
             return BaseApplication.get().getString(R.string.mainnet);
         }
+    }
+
+    public static String getNetworkUrl(final @NetworkType.Type int networkType) {
+        if (networkType == NetworkType.ROPSTEN_TESTNET_STAGING) {
+            if (BuildConfig.DEBUG) {
+                return BaseApplication.get().getString(R.string.balance_url);
+            }
+            return BaseApplication.get().getString(R.string.balance_url_testnet);
+        } else if (networkType == NetworkType.ROPSTEN_TESTNET) {
+            if (BuildConfig.DEBUG) {
+                return BaseApplication.get().getString(R.string.balance_url_testnet);
+            }
+            return BaseApplication.get().getString(R.string.balance_url);
+        } else {
+            return null;
+        }
+    }
+
+    public static @NetworkType.Type int getDefaultNetwork() {
+        if (BuildConfig.DEBUG) {
+            return NetworkType.ROPSTEN_TESTNET_STAGING;
+        }
+        return NetworkType.ROPSTEN_TESTNET;
     }
 }
